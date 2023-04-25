@@ -117,6 +117,7 @@ export class State {
     {name: "showTestData", type: Type.BOOLEAN},
     {name: "discretize", type: Type.BOOLEAN},
     {name: "percTrainData", type: Type.NUMBER},
+    {name: "labelinput", type: Type.BOOLEAN},
     {name: "x", type: Type.BOOLEAN},
     {name: "y", type: Type.BOOLEAN},
     {name: "xTimesY", type: Type.BOOLEAN},
@@ -142,7 +143,7 @@ export class State {
   discretize = false;
   tutorial: string = null;
   percTrainData = 50;
-  activation = nn.Activations.TANH;
+  activation = nn.Activations.RELU;
   regularization: nn.RegularizationFunction = null;
   problem = Problem.CLASSIFICATION;
   initZero = false;
@@ -151,6 +152,8 @@ export class State {
   numHiddenLayers = 1;
   hiddenLayerControls: any[] = [];
   networkShape: number[] = [4, 2];
+  labelinput_index: number = 0;
+  labelinput=true;
   x = true;
   y = true;
   xTimesY = false;

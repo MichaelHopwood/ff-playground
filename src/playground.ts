@@ -63,6 +63,7 @@ interface InputFeature {
 }
 
 let INPUTS: {[name: string]: InputFeature} = {
+  "labelinput": {f: (x, y) => 1, label: "Label"},
   "x": {f: (x, y) => x, label: "X_1"},
   "y": {f: (x, y) => y, label: "X_2"},
   "xSquared": {f: (x, y) => x * x, label: "X_1^2"},
@@ -822,8 +823,9 @@ function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
       // 1 for points inside the circle, and 0 for points outside the circle.
       let x = xScale(i);
       let y = yScale(j);
-      let input = constructInput(x, y);
-      nn.forwardProp(network, input);
+      // let input = constructInput(x, y);
+      // nn.forwardProp(network, input);
+      forwardPropinference(x, y);
       nn.forEachNode(network, true, node => {
         boundary[node.id][i][j] = node.output;
       });
@@ -841,8 +843,9 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
   let loss = 0;
   for (let i = 0; i < dataPoints.length; i++) {
     let dataPoint = dataPoints[i];
-    let input = constructInput(dataPoint.x, dataPoint.y);
-    let output = nn.forwardProp(network, input);
+    // let input = constructInput(dataPoint.x, dataPoint.y);
+    // let output = nn.forwardProp(network, input);
+    let output = forwardPropinference(dataPoint.x, dataPoint.y);
     loss += nn.Errors.SQUARE.error(output, dataPoint.label);
   }
   return loss / dataPoints.length;
@@ -896,12 +899,20 @@ function constructInputIds(): string[] {
   return result;
 }
 
-function constructInput(x: number, y: number): number[] {
+function constructInput(x: number, y: number, lbl: number): number[] {
   let input: number[] = [];
+  let i = 0;
   for (let inputName in INPUTS) {
-    if (state[inputName]) {
+    if (inputName === "labelinput") {
+      if (lbl < 0) {
+        lbl = 0
+      }
+      input.push(lbl);
+    }
+    else if (state[inputName]) {
       input.push(INPUTS[inputName].f(x, y));
     }
+    i++;
   }
   return input;
 }
@@ -909,18 +920,47 @@ function constructInput(x: number, y: number): number[] {
 function oneStep(): void {
   iter++;
   trainData.forEach((point, i) => {
-    let input = constructInput(point.x, point.y);
-    nn.forwardProp(network, input);
-    nn.backProp(network, point.label, nn.Errors.SQUARE);
-    if ((i + 1) % state.batchSize === 0) {
-      nn.updateWeights(network, state.learningRate, state.regularizationRate);
-    }
+
+    // forward pass
+    let input_positive = constructInput(point.x, point.y, point.label);
+    nn.forwardProp(network, input_positive, 
+                  true, (i + 1) % state.batchSize === 0, 
+                  false,
+                  state.learningRate, state.regularizationRate);
+    // negative pass
+    let input_negative = constructInput(point.x, point.y, -1 * point.label);
+    nn.forwardProp(network, input_negative, 
+                  true, (i + 1) % state.batchSize === 0, 
+                  true,
+                  state.learningRate, state.regularizationRate);
+    
+    // Placed in forwardProp
+    // nn.backProp(network, point.label, nn.Errors.SQUARE);
+    // if ((i + 1) % state.batchSize === 0) {
+    //   nn.updateWeights(network, state.learningRate, state.regularizationRate);
+    // }
   });
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   updateUI();
 }
+
+function forwardPropinference(x: number, y: number): number {
+  // in forwardProp, if doTrain = false, then 
+  // the node's output value is 
+
+  let input_neg1 = constructInput(x, y, -1);
+  nn.forwardProp(network, input_neg1, 
+                false, false);
+
+  let input_pos1 = constructInput(x, y, 1);
+  let out = nn.forwardProp(network, input_pos1, 
+                false, false);
+
+  return out;
+}
+
 
 export function getOutputWeights(network: nn.Node[][]): number[] {
   let weights: number[] = [];
@@ -951,10 +991,10 @@ function reset(onStartup=false) {
 
   // Make a simple network.
   iter = 0;
-  let numInputs = constructInput(0 , 0).length;
+  let numInputs = constructInput(0 , 0, 1).length;
   let shape = [numInputs].concat(state.networkShape).concat([1]);
   let outputActivation = (state.problem === Problem.REGRESSION) ?
-      nn.Activations.LINEAR : nn.Activations.TANH;
+      nn.Activations.LINEAR : nn.Activations.RELU;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
   lossTrain = getLoss(network, trainData);
