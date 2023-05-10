@@ -44,6 +44,8 @@ export class Node {
   numAccumulatedDers = 0;
   /** Activation function that takes total input and returns node's output */
   activation: ActivationFunction;
+  /** Total squared output*/
+  h2Sum = 0;
 
   /**
    * Creates a new node with the provided id and activation function.
@@ -305,45 +307,46 @@ export function forwardProp(network: Node[][], inputs: number[],
   }
 
   // normalize 
-  // return [x / (epsilon + norm(x, keepdims=True) ** 0.5) for x in X]
-  let epsilon = 1e-9;
+  // let epsilon = 1e-9;
 
   for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
     let currentLayer = network[layerIdx];
 
-    if (layerIdx !== 1) {
-      // Normalize inputs
-      for (let i = 0; i < currentLayer.length; i++) {
-        let node = currentLayer[i];
-        // console.log("Before:")
-        let norm = 0;
-        for (let j = 0; j < node.inputLinks.length; j++) {
-          let link = node.inputLinks[j];
-          // console.log(link.source.output);
-          norm += Math.pow(link.source.output, 2);
-        }
+  //   if (layerIdx !== 1) {
+  //     // Normalize inputs
+  //     for (let i = 0; i < currentLayer.length; i++) {
+  //       let node = currentLayer[i];
+  //       // console.log("Before:")
+  //       let norm = 0;
+  //       for (let j = 0; j < node.inputLinks.length; j++) {
+  //         let link = node.inputLinks[j];
+  //         // console.log(link.source.output);
+  //         norm += Math.pow(link.source.output, 2);
+  //       }
 
-        norm = Math.pow(norm, 0.5);
-        norm = norm + epsilon;
+  //       norm = Math.pow(norm, 0.5);
+  //       norm = norm + epsilon;
 
-        // console.log("layerIdx");
-        // console.log(layerIdx)
-        // console.log("Norm:");
-        // console.log(norm);
+  //       // console.log("layerIdx");
+  //       // console.log(layerIdx)
+  //       console.log("Norm:");
+  //       console.log(norm);
 
-        for (let j = 0; j < node.inputLinks.length; j++) {
-          let link = node.inputLinks[j];
-          link.source.output = link.source.output / norm;
-          // console.log(link.source.output);
-        }
-      }
-    }
+  //       for (let j = 0; j < node.inputLinks.length; j++) {
+  //         let link = node.inputLinks[j];
+  //         link.source.output = link.source.output / norm;
+  //         // console.log(link.source.output);
+  //       }
+  //     }
+  //   }
 
     // Update all the nodes in this layer.
     for (let i = 0; i < currentLayer.length; i++) {
       let node = currentLayer[i];
       node.updateOutput(doTrain !== undefined && doTrain);
     }
+
+
 
     if (doTrain !== undefined && doTrain) {
       backProp(currentLayer, isNegative);
@@ -382,14 +385,15 @@ export function backProp(currentLayer: Node[],
   // 2) each of its input weights.
 
   let goodness_derivative = calculate_goodness_derivative(currentLayer);
-  console.log("goodness_derivative: ")
-  console.log(goodness_derivative)
+  // console.log("goodness_derivative: ")
+  // console.log(goodness_derivative)
   for (let i = 0; i < currentLayer.length; i++) {
     let node = currentLayer[i];
     node.inputDer = goodness_derivative * node.activation.der(node.totalInput);
     if (isNegative) {
       node.inputDer = -node.inputDer;
     }
+    // console.log(isNegative, node.inputDer)
     node.accInputDer += node.inputDer;
     node.numAccumulatedDers++;
   }
@@ -443,6 +447,7 @@ export function updateWeights(currentLayer: Node[], learningRate: number,
     for (let j = 0; j < node.inputLinks.length; j++) {
       let link = node.inputLinks[j];
       if (link.isDead) {
+        console.log("dead link");
         continue;
       }
       let regulDer = link.regularization ?
@@ -462,6 +467,7 @@ export function updateWeights(currentLayer: Node[], learningRate: number,
         } else {
           link.weight = newLinkWeight;
         }
+        // console.log("link.weight: ", link.weight)
         link.accErrorDer = 0;
         link.numAccumulatedDers = 0;
       }

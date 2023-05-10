@@ -904,9 +904,9 @@ function constructInput(x: number, y: number, lbl: number): number[] {
   let i = 0;
   for (let inputName in INPUTS) {
     if (inputName === "labelinput") {
-      if (lbl < 0) {
-        lbl = 0
-      }
+      // if (lbl < 0) {
+      //   lbl = 0
+      // }
       input.push(lbl);
     }
     else if (state[inputName]) {
@@ -922,13 +922,13 @@ function oneStep(): void {
   trainData.forEach((point, i) => {
 
     // forward pass
-    let input_positive = constructInput(point.x, point.y, point.label);
+    let input_positive = constructInput(point.x, point.y, 1); // point.label);
     nn.forwardProp(network, input_positive, 
                   true, (i + 1) % state.batchSize === 0, 
                   false,
                   state.learningRate, state.regularizationRate);
     // negative pass
-    let input_negative = constructInput(point.x, point.y, -1 * point.label);
+    let input_negative = constructInput(point.x, point.y, -1); // * point.label);
     nn.forwardProp(network, input_negative, 
                   true, (i + 1) % state.batchSize === 0, 
                   true,
@@ -950,15 +950,26 @@ function forwardPropinference(x: number, y: number): number {
   // in forwardProp, if doTrain = false, then 
   // the node's output value is 
 
-  let input_neg1 = constructInput(x, y, -1);
-  nn.forwardProp(network, input_neg1, 
-                false, false);
-
   let input_pos1 = constructInput(x, y, 1);
-  let out = nn.forwardProp(network, input_pos1, 
+  let neg_out = nn.forwardProp(network, input_pos1, 
+                false, false);
+  neg_out = -1 * neg_out;
+
+  let input_neg1 = constructInput(x, y, -1);
+  let pos_out = nn.forwardProp(network, input_neg1, 
                 false, false);
 
-  return out;
+  console.log("Outputs:")
+  console.log(neg_out, pos_out)
+
+  if ( Math.abs(neg_out) > Math.abs(pos_out) ) {
+    console.log(neg_out)
+    return neg_out;
+  }
+  else {
+    console.log(pos_out)
+    return pos_out;
+  }
 }
 
 
